@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TenderLens</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .spinner {
+      border: 3px solid #e5e7eb;
+      border-top: 3px solid #1d4ed8;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .fade-in { animation: fadeIn 0.4s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen font-sans">
+
+  <!-- ═══════════════════════════════════════════════════════ HEADER -->
+  <header class="bg-blue-900 text-white px-8 py-4 shadow-lg">
+    <div class="max-w-6xl mx-auto flex items-center gap-4">
+      <div class="bg-blue-700 rounded-xl p-2 text-2xl">🔍</div>
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight">TenderLens</h1>
+        <p class="text-blue-300 text-sm">AI-Powered Bid Evaluation & Eligibility Intelligence</p>
+      </div>
+      <div class="ml-auto text-right hidden md:block">
+        <p class="text-xs text-blue-300">Government Procurement Platform</p>
+        <p class="text-xs text-blue-400" id="currentTime"></p>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-6 py-8 space-y-6">
+
+    <!-- ═══════════════════════════════════════════════════ STEP 1 -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 fade-in">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="bg-blue-700 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">1</div>
+        <div>
+          <h2 class="text-lg font-bold text-slate-800">Upload Tender Document</h2>
+          <p class="text-sm text-slate-500">Upload the official government tender or RFP in PDF format</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-3 items-center">
+        <label class="flex items-center gap-2 border-2 border-dashed border-slate-300 rounded-xl px-4 py-3 cursor-pointer hover:border-blue-400 transition-colors bg-slate-50">
+          <span class="text-slate-500 text-sm">📄</span>
+          <span class="text-sm text-slate-600" id="tenderFileName">Choose tender PDF...</span>
+          <input type="file" id="tenderFile" accept=".pdf" class="hidden" onchange="updateFileName('tenderFile','tenderFileName')">
+        </label>
+        <button onclick="uploadTender()"
+          class="bg-blue-700 hover:bg-blue-800 text-white px-6 py-3 rounded-xl text-sm font-semibold transition-colors shadow-sm">
+          Extract Criteria
+        </button>
+      </div>
+
+      <div id="tenderStatus" class="mt-4 hidden"></div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ CRITERIA PANEL -->
+    <section id="criteriaSection" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 fade-in">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <div class="bg-green-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm">✓</div>
+          <h2 class="text-lg font-bold text-slate-800">Extracted Eligibility Criteria</h2>
+        </div>
+        <span id="criteriaCount" class="bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full"></span>
+      </div>
+
+      <!-- Conflict Warning -->
+      <div id="conflictAlert" class="hidden mb-4 bg-red-50 border border-red-200 rounded-xl p-4">
+        <p class="text-sm font-bold text-red-700 mb-1">⚠️ Conflicts Detected in Tender Document</p>
+        <div id="conflictList" class="text-sm text-red-600 space-y-1"></div>
+      </div>
+
+      <!-- Criteria Grid -->
+      <div id="criteriaList" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════ STEP 2 -->
+    <section id="bidderSection" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 fade-in">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="bg-blue-700 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">2</div>
+        <div>
+          <h2 class="text-lg font-bold text-slate-800">Upload Bidder Submissions</h2>
+          <p class="text-sm text-slate-500">Add each bidder one at a time. You can add as many as needed.</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-3 items-center">
+        <input type="text" id="bidderName" placeholder="Company / Bidder Name"
+          class="border border-slate-300 rounded-xl px-4 py-3 text-sm w-60 focus:outline-none focus:ring-2 focus:ring-blue-400">
+        <label class="flex items-center gap-2 border-2 border-dashed border-slate-300 rounded-xl px-4 py-3 cursor-pointer hover:border-green-400 transition-colors bg-slate-50">
+          <span class="text-slate-500 text-sm">📎</span>
+          <span class="text-sm text-slate-600" id="bidderFileName">Choose bidder PDF...</span>
+          <input type="file" id="bidderFile" accept=".pdf" class="hidden" onchange="updateFileName('bidderFile','bidderFileName')">
+        </label>
+        <button onclick="uploadBidder()"
+          class="bg-green-700 hover:bg-green-800 text-white px-6 py-3 rounded-xl text-sm font-semibold transition-colors shadow-sm">
+          Evaluate Bidder
+        </button>
+      </div>
+
+      <div id="bidderStatus" class="mt-4 hidden"></div>
+
+      <!-- Bidder Queue -->
+      <div id="bidderQueue" class="mt-4 flex flex-wrap gap-2"></div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════ MATRIX -->
+    <section id="matrixSection" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 fade-in">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-lg font-bold text-slate-800">Evaluation Matrix</h2>
+          <p class="text-sm text-slate-500">Click any cell to see the full reasoning and source evidence</p>
+        </div>
+        <button onclick="exportReport()"
+          class="bg-slate-700 hover:bg-slate-800 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">
+          📄 Export Report
+        </button>
+      </div>
+
+      <div id="matrixContainer" class="overflow-x-auto rounded-xl border border-slate-200"></div>
+
+      <!-- Detail Panel (shown on cell click) -->
+      <div id="detailPanel" class="hidden mt-6 border-t border-slate-200 pt-6 fade-in">
+        <h3 class="font-bold text-slate-700 mb-4 text-base" id="detailTitle"></h3>
+        <div id="detailContent" class="space-y-4"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════ FOOTER -->
+  <footer class="text-center text-xs text-slate-400 py-8">
+    TenderLens — Built for AI Hackathon · Powered by Claude AI
+  </footer>
+
+<script>
+  // ─── STATE ───────────────────────────────────────────────────────────────────
+  let tenderPath = '';
+  let extractedCriteria = [];
+  let allBidderResults = [];
+
+  // ─── CLOCK ───────────────────────────────────────────────────────────────────
+  function updateClock() {
+    const el = document.getElementById('currentTime');
+    if (el) el.textContent = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+  }
+  updateClock();
+  setInterval(updateClock, 60000);
+
+  // ─── FILE NAME PREVIEW ───────────────────────────────────────────────────────
+  function updateFileName(inputId, labelId) {
+    const file = document.getElementById(inputId).files[0];
+    const label = document.getElementById(labelId);
+    if (file) label.textContent = file.name;
+  }
+
+  // ─── STATUS HELPERS ──────────────────────────────────────────────────────────
+  function setStatus(id, message, type) {
+    const el = document.getElementById(id);
+    el.classList.remove('hidden');
+    const colors = {
+      loading: 'bg-blue-50 border border-blue-200 text-blue-700',
+      success: 'bg-green-50 border border-green-200 text-green-700',
+      error:   'bg-red-50 border border-red-200 text-red-700'
+    };
+    el.className = `mt-4 rounded-xl px-4 py-3 text-sm ${colors[type]}`;
+    el.innerHTML = type === 'loading'
+      ? `<span class="spinner"></span>${message}`
+      : message;
+  }
+
+  // ─── STEP 1: UPLOAD TENDER ───────────────────────────────────────────────────
+  async function uploadTender() {
+    const file = document.getElementById('tenderFile').files[0];
+    if (!file) return alert('Please select a tender PDF first.');
+
+    setStatus('tenderStatus', 'Analyzing tender document — this takes 30–60 seconds...', 'loading');
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/upload-tender', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (!data.success) throw new Error(data.error);
+
+      tenderPath = data.tender_path;
+      extractedCriteria = data.criteria.criteria || [];
+      const conflicts = data.criteria.conflicts || [];
+
+      setStatus('tenderStatus',
+        `✅ Successfully extracted <strong>${extractedCriteria.length} eligibility criteria</strong> from the tender.`,
+        'success');
+
+      renderCriteria(extractedCriteria, conflicts);
+      show('criteriaSection');
+      show('bidderSection');
+
+    } catch (err) {
+      setStatus('tenderStatus', `❌ Error: ${err.message}`, 'error');
+    }
+  }
+
+  // ─── RENDER CRITERIA ─────────────────────────────────────────────────────────
+  function renderCriteria(criteria, conflicts) {
+    document.getElementById('criteriaCount').textContent = `${criteria.length} criteria found`;
+
+    if (conflicts.length > 0) {
+      show('conflictAlert');
+      document.getElementById('conflictList').innerHTML =
+        conflicts.map(c =>
+          `<p>• <strong>[${c.criteria_ids.join(' vs ')}]</strong> ${c.description}</p>`
+        ).join('');
+    }
+
+    const categoryColors = {
+      'Financial':      'bg-purple-100 text-purple-700',
+      'Technical':      'bg-blue-100 text-blue-700',
+      'Legal':          'bg-red-100 text-red-700',
+      'Certifications': 'bg-yellow-100 text-yellow-700',
+      'Experience':     'bg-green-100 text-green-700',
+      'Other':          'bg-slate-100 text-slate-600'
+    };
+
+    document.getElementById('criteriaList').innerHTML = criteria.map(c => {
+      const catColor = categoryColors[c.category] || categoryColors['Other'];
+      return `
+        <div class="border border-slate-200 rounded-xl p-4 bg-slate-50 hover:bg-white transition-colors">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="bg-blue-700 text-white text-xs font-bold px-2 py-0.5 rounded font-mono">${c.id}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full font-medium ${catColor}">${c.category}</span>
+            ${c.mandatory
+              ? '<span class="text-xs text-red-500 font-semibold">● Mandatory</span>'
+              : '<span class="text-xs text-slate-400">○ Optional</span>'}
+          </div>
+          <p class="text-sm text-slate-700 leading-relaxed">${c.description}</p>
+          ${c.source_text
+            ? `<p class="text-xs text-slate-400 mt-2 italic border-l-2 border-slate-300 pl-2">"${c.source_text}"</p>`
+            : ''}
+        </div>`;
+    }).join('');
+  }
+
+  // ─── STEP 2: UPLOAD BIDDER ───────────────────────────────────────────────────
+  async function uploadBidder() {
+    const name = document.getElementById('bidderName').value.trim();
+    const file = document.getElementById('bidderFile').files[0];
+    if (!name) return alert('Please enter the bidder/company name.');
+    if (!file) return alert('Please select the bidder PDF.');
+
+    setStatus('bidderStatus', `Evaluating ${name} against ${extractedCriteria.length} criteria...`, 'loading');
+    addBidderChip(name, 'evaluating');
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('bidder_name', name);
+    formData.append('tender_path', tenderPath);
+    formData.append('criteria', JSON.stringify(extractedCriteria));
+
+    try {
+      const res = await fetch('/upload-bidder', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (!data.success) throw new Error(data.error);
+
+      allBidderResults.push(data.evaluation);
+      updateBidderChip(name, data.evaluation.overall_status);
+
+      setStatus('bidderStatus',
+        `✅ <strong>${name}</strong> evaluated — status: <strong>${data.evaluation.overall_status}</strong>. Add more bidders or view the matrix below.`,
+        'success');
+
+      document.getElementById('bidderName').value = '';
+      document.getElementById('bidderFileName').textContent = 'Choose bidder PDF...';
+
+      renderMatrix();
+      show('matrixSection');
+
+    } catch (err) {
+      setStatus('bidderStatus', `❌ Error evaluating ${name}: ${err.message}`, 'error');
+      updateBidderChip(name, 'ERROR');
+    }
+  }
+
+  // ─── BIDDER STATUS CHIPS ─────────────────────────────────────────────────────
+  function addBidderChip(name, status) {
+    const queue = document.getElementById('bidderQueue');
+    const chip = document.createElement('div');
+    chip.id = `chip_${name.replace(/\s/g,'_')}`;
+    chip.className = 'text-xs px-3 py-1 rounded-full bg-yellow-100 text-yellow-700 font-medium';
+    chip.textContent = `⏳ ${name}`;
+    queue.appendChild(chip);
+  }
+
+  function updateBidderChip(name, status) {
+    const chip = document.getElementById(`chip_${name.replace(/\s/g,'_')}`);
+    if (!chip) return;
+    const styles = {
+      'ELIGIBLE':     'bg-green-100 text-green-700',
+      'NOT ELIGIBLE': 'bg-red-100 text-red-700',
+      'NEEDS REVIEW': 'bg-yellow-100 text-yellow-700',
+      'ERROR':        'bg-slate-100 text-slate-500'
+    };
+    const icons = { 'ELIGIBLE': '✓', 'NOT ELIGIBLE': '✗', 'NEEDS REVIEW': '?', 'ERROR': '!' };
+    chip.className = `text-xs px-3 py-1 rounded-full font-medium ${styles[status] || styles['NEEDS REVIEW']}`;
+    chip.textContent = `${icons[status] || '?'} ${name}`;
+  }
+
+  // ─── RENDER MATRIX ───────────────────────────────────────────────────────────
+  function renderMatrix() {
+    const container = document.getElementById('matrixContainer');
+
+    let html = `<table class="w-full text-sm border-collapse">
+      <thead class="bg-slate-800 text-white">
+        <tr>
+          <th class="text-left p-4 font-semibold min-w-64">Criterion</th>`;
+
+    allBidderResults.forEach(b => {
+      const badge =
+        b.overall_status === 'ELIGIBLE'     ? 'bg-green-500' :
+        b.overall_status === 'NOT ELIGIBLE' ? 'bg-red-500'   : 'bg-yellow-500';
+      html += `<th class="p-4 text-center min-w-40">
+        <div class="font-semibold">${b.bidder_name}</div>
+        <span class="text-xs px-2 py-0.5 rounded-full ${badge} text-white mt-1 inline-block">${b.overall_status}</span>
+        ${b.document_quality === 'POOR'
+          ? `<div class="text-xs text-orange-300 mt-1">⚠ Poor scan quality</div>` : ''}
+      </th>`;
+    });
+
+    html += `</tr></thead><tbody>`;
+
+    extractedCriteria.forEach((c, rowIdx) => {
+      const rowBg = rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50';
+      html += `<tr class="${rowBg} hover:bg-blue-50 transition-colors">
+        <td class="p-4 border-b border-slate-100">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="bg-blue-700 text-white text-xs font-mono px-2 py-0.5 rounded">${c.id}</span>
+            ${c.mandatory ? '<span class="text-red-400 text-xs">●</span>' : ''}
+          </div>
+          <p class="text-slate-700 text-xs leading-relaxed">${c.description}</p>
+        </td>`;
+
+      allBidderResults.forEach(b => {
+        const ev = (b.evaluations || []).find(e => e.criteria_id === c.id);
+
+        if (!ev) {
+          html += `<td class="p-4 border-b border-slate-100 text-center text-slate-300 text-xs">—</td>`;
+          return;
+        }
+
+        const cellColor =
+          ev.verdict === 'ELIGIBLE'     ? 'bg-green-50 hover:bg-green-100' :
+          ev.verdict === 'NOT ELIGIBLE' ? 'bg-red-50 hover:bg-red-100'     : 'bg-yellow-50 hover:bg-yellow-100';
+        const badgeColor =
+          ev.verdict === 'ELIGIBLE'     ? 'bg-green-500' :
+          ev.verdict === 'NOT ELIGIBLE' ? 'bg-red-500'   : 'bg-yellow-400';
+        const icon =
+          ev.verdict === 'ELIGIBLE'     ? '✓' :
+          ev.verdict === 'NOT ELIGIBLE' ? '✗' : '?';
+
+        html += `<td class="p-4 border-b border-slate-100 text-center cursor-pointer ${cellColor} transition-colors"
+                     onclick="showDetail('${b.bidder_name}', '${c.id}')">
+          <span class="inline-block px-2 py-1 rounded-lg text-white text-xs font-bold ${badgeColor}">${icon} ${ev.verdict}</span>
+          ${ev.appeal_risk
+            ? `<div class="text-xs text-orange-600 mt-1 font-medium">⚖ Appeal risk</div>` : ''}
+          <div class="text-xs text-slate-400 mt-1">${Math.round(ev.confidence * 100)}% conf.</div>
+        </td>`;
+      });
+
+      html += `</tr>`;
+    });
+
+    html += `</tbody></table>`;
+    container.innerHTML = html;
+  }
+
+  // ─── DETAIL PANEL ────────────────────────────────────────────────────────────
+  function showDetail(bidderName, criteriaId) {
+    const bidder    = allBidderResults.find(b => b.bidder_name === bidderName);
+    const ev        = (bidder?.evaluations || []).find(e => e.criteria_id === criteriaId);
+    const criterion = extractedCriteria.find(c => c.id === criteriaId);
+    if (!ev) return;
+
+    document.getElementById('detailTitle').textContent =
+      `${bidderName}  ›  ${criteriaId}: ${criterion?.description || ''}`;
+
+    const borderColor =
+      ev.verdict === 'ELIGIBLE'     ? 'border-green-400 bg-green-50' :
+      ev.verdict === 'NOT ELIGIBLE' ? 'border-red-400 bg-red-50'     : 'border-yellow-400 bg-yellow-50';
+    const verdictColor =
+      ev.verdict === 'ELIGIBLE'     ? 'text-green-700' :
+      ev.verdict === 'NOT ELIGIBLE' ? 'text-red-700'   : 'text-yellow-700';
+
+    document.getElementById('detailContent').innerHTML = `
+      <div class="border-l-4 ${borderColor} pl-4 py-3 rounded-r-xl">
+        <p class="font-bold ${verdictColor} text-base">${ev.verdict}
+          <span class="text-sm font-normal text-slate-500 ml-2">${Math.round(ev.confidence * 100)}% confidence</span>
+        </p>
+        <p class="text-slate-600 text-sm mt-1 leading-relaxed">${ev.explanation}</p>
+      </div>
+
+      ${ev.source_text ? `
+      <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <p class="text-xs font-bold text-blue-600 mb-2">📌 SOURCE TEXT FROM BIDDER DOCUMENT</p>
+        <p class="text-sm text-slate-700 italic leading-relaxed">"${ev.source_text}"</p>
+      </div>` : ''}
+
+      ${ev.appeal_risk ? `
+      <div class="bg-orange-50 border border-orange-300 rounded-xl p-4">
+        <p class="text-xs font-bold text-orange-700 mb-1">⚖️ APPEAL RISK FLAGGED</p>
+        <p class="text-sm text-orange-800 leading-relaxed">${ev.appeal_reason}</p>
+      </div>` : ''}
+    `;
+
+    show('detailPanel');
+    document.getElementById('detailPanel').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // ─── EXPORT REPORT ───────────────────────────────────────────────────────────
+  function exportReport() {
+    if (allBidderResults.length === 0) return alert('No evaluations to export yet.');
+
+    let report = '';
+    report += '═'.repeat(60) + '\n';
+    report += '        TENDERLENS EVALUATION REPORT\n';
+    report += `        Generated: ${new Date().toLocaleString('en-IN')}\n`;
+    report += '═'.repeat(60) + '\n\n';
+
+    report += `ELIGIBILITY CRITERIA (${extractedCriteria.length} total)\n`;
+    report += '─'.repeat(40) + '\n';
+    extractedCriteria.forEach(c => {
+      report += `[${c.id}] [${c.category}] ${c.description}\n`;
+      report += `     Mandatory: ${c.mandatory ? 'Yes' : 'No'}\n`;
+    });
+
+    report += '\n' + '═'.repeat(60) + '\n\n';
+    report += 'BIDDER EVALUATIONS\n';
+
+    allBidderResults.forEach(b => {
+      report += '─'.repeat(40) + '\n';
+      report += `BIDDER: ${b.bidder_name}\n`;
+      report += `STATUS: ${b.overall_status}\n`;
+      report += `DOCUMENT QUALITY: ${b.document_quality}\n`;
+      if (b.quality_note) report += `NOTE: ${b.quality_note}\n`;
+      report += '\nCRITERION-BY-CRITERION BREAKDOWN:\n';
+
+      (b.evaluations || []).forEach(ev => {
+        report += `\n  [${ev.criteria_id}] ${ev.verdict} — ${Math.round(ev.confidence * 100)}% confidence\n`;
+        report += `  Explanation: ${ev.explanation}\n`;
+        if (ev.source_text) report += `  Evidence: "${ev.source_text}"\n`;
+        if (ev.appeal_risk) report += `  ⚖ APPEAL RISK: ${ev.appeal_reason}\n`;
+      });
+
+      report += '\n';
+    });
+
+    report += '═'.repeat(60) + '\n';
+    report += 'END OF REPORT — TenderLens · Powered by Claude AI\n';
+
+    const blob = new Blob([report], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `TenderLens_Report_${Date.now()}.txt`;
+    a.click();
+  }
+
+  // ─── UTILITY ─────────────────────────────────────────────────────────────────
+  function show(id) {
+    const el = document.getElementById(id);
+    el.classList.remove('hidden');
+    el.classList.add('fade-in');
+  }
+</script>
+</body>
+</html>
