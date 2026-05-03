@@ -17,12 +17,30 @@
       vertical-align: middle;
       margin-right: 8px;
     }
+    .spinner-lg {
+      border: 4px solid #e5e7eb;
+      border-top: 4px solid #1d4ed8;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px auto;
+    }
     @keyframes spin { to { transform: rotate(360deg); } }
     .fade-in { animation: fadeIn 0.4s ease-in; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body class="bg-slate-100 min-h-screen font-sans">
+
+  <!-- ═══════════════════════════════════════ LOADING OVERLAY -->
+  <div id="loadingOverlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl p-10 text-center shadow-2xl max-w-sm mx-4">
+      <div class="spinner-lg"></div>
+      <p class="text-slate-800 font-bold text-lg" id="overlayTitle">Analyzing document...</p>
+      <p class="text-slate-400 text-sm mt-2" id="overlaySubtitle">This takes 30–60 seconds. Please wait.</p>
+    </div>
+  </div>
 
   <!-- ═══════════════════════════════════════════════════════ HEADER -->
   <header class="bg-blue-900 text-white px-8 py-4 shadow-lg">
@@ -142,7 +160,7 @@
 
   <!-- ═══════════════════════════════════════════════════════ FOOTER -->
   <footer class="text-center text-xs text-slate-400 py-8">
-    TenderLens — Built for AI Hackathon · Powered by Claude AI
+    TenderLens — Built for AI Hackathon · Powered by Groq AI
   </footer>
 
 <script>
@@ -166,6 +184,17 @@
     if (file) label.textContent = file.name;
   }
 
+  // ─── LOADING OVERLAY ─────────────────────────────────────────────────────────
+  function showOverlay(title, subtitle) {
+    document.getElementById('overlayTitle').textContent = title;
+    document.getElementById('overlaySubtitle').textContent = subtitle || 'This takes 30–60 seconds. Please wait.';
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+  }
+
+  function hideOverlay() {
+    document.getElementById('loadingOverlay').classList.add('hidden');
+  }
+
   // ─── STATUS HELPERS ──────────────────────────────────────────────────────────
   function setStatus(id, message, type) {
     const el = document.getElementById(id);
@@ -187,6 +216,7 @@
     if (!file) return alert('Please select a tender PDF first.');
 
     setStatus('tenderStatus', 'Analyzing tender document — this takes 30–60 seconds...', 'loading');
+    showOverlay('Extracting eligibility criteria...', 'Reading the tender document. This takes 30–60 seconds.');
 
     const formData = new FormData();
     formData.append('file', file);
@@ -211,6 +241,8 @@
 
     } catch (err) {
       setStatus('tenderStatus', `❌ Error: ${err.message}`, 'error');
+    } finally {
+      hideOverlay();
     }
   }
 
@@ -262,6 +294,7 @@
     if (!file) return alert('Please select the bidder PDF.');
 
     setStatus('bidderStatus', `Evaluating ${name} against ${extractedCriteria.length} criteria...`, 'loading');
+    showOverlay(`Evaluating ${name}...`, `Checking against ${extractedCriteria.length} criteria. This takes 30–60 seconds.`);
     addBidderChip(name, 'evaluating');
 
     const formData = new FormData();
@@ -292,6 +325,8 @@
     } catch (err) {
       setStatus('bidderStatus', `❌ Error evaluating ${name}: ${err.message}`, 'error');
       updateBidderChip(name, 'ERROR');
+    } finally {
+      hideOverlay();
     }
   }
 
@@ -468,7 +503,7 @@
     });
 
     report += '═'.repeat(60) + '\n';
-    report += 'END OF REPORT — TenderLens · Powered by Google Gemini\n';
+    report += 'END OF REPORT — TenderLens · Powered by Groq AI\n';
 
     const blob = new Blob([report], { type: 'text/plain' });
     const a = document.createElement('a');
