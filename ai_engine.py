@@ -3,7 +3,9 @@ import json
 import fitz
 from groq import Groq
 
-client = Groq(api_key="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")
+from dotenv import load_dotenv
+load_dotenv()
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 MODEL = "llama-3.3-70b-versatile"
 
 def pdf_to_text(pdf_path):
@@ -41,3 +43,4 @@ async def evaluate_bidder(bidder_path, bidder_name, criteria, tender_path):
         if raw.startswith("json"):
             raw = raw[4:]
     return json.loads(raw.strip())
+
