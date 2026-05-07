@@ -441,7 +441,7 @@
     document.getElementById('detailContent').innerHTML = `
       <div class="border-l-4 ${borderColor} pl-4 py-3 rounded-r-xl">
         <p class="font-bold ${verdictColor} text-base">${ev.verdict}
-          <span class="text-sm font-normal text-slate-500 ml-2">${Math.round(ev.confidence * 100)}% confidence</span>
+          <span class="text-sm font-normal text-slate-500 ml-2">${formatConfidence(ev.confidence)}% confidence</span>
         </p>
         <p class="text-slate-600 text-sm mt-1 leading-relaxed">${ev.explanation}</p>
       </div>
@@ -492,7 +492,7 @@
       report += '\nCRITERION-BY-CRITERION BREAKDOWN:\n';
 
       (b.evaluations || []).forEach(ev => {
-        report += `\n  [${ev.criteria_id}] ${ev.verdict} — ${Math.round(ev.confidence * 100)}% confidence\n`;
+        report += `\n  [${ev.criteria_id}] ${ev.verdict} — ${formatConfidence(ev.confidence)}% confidence\n`;
         report += `  Explanation: ${ev.explanation}\n`;
         if (ev.source_text) report += `  Evidence: "${ev.source_text}"\n`;
         if (ev.appeal_risk) report += `  ⚖ APPEAL RISK: ${ev.appeal_reason}\n`;
@@ -512,6 +512,19 @@
   }
 
   // ─── UTILITY ─────────────────────────────────────────────────────────────────
+  function formatConfidence(confidence) {
+  if (typeof confidence === 'number') {
+    const val = confidence > 1 ? confidence : confidence * 100;
+    return Math.round(val);
+  }
+  if (typeof confidence === 'string') {
+    const map = { 'high': 90, 'medium': 60, 'low': 30 };
+    if (map[confidence.toLowerCase()]) return map[confidence.toLowerCase()];
+    const num = parseFloat(confidence);
+    if (!isNaN(num)) return Math.round(num > 1 ? num : num * 100);
+  }
+  return 50;
+}
   function show(id) {
     const el = document.getElementById(id);
     el.classList.remove('hidden');
