@@ -7,6 +7,13 @@ venv/
 # Uploaded files
 uploads/
 
+# Keep the folder, but ignore the contents
+uploads/*
+!uploads/.gitkeep
+
+reports/*
+!reports/.gitkeep
+
 # Python cache
 __pycache__/
 *.pyc
