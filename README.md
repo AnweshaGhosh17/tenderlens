@@ -19,14 +19,6 @@ TenderLens automates government tender evaluation. Upload a tender document and 
 
 ---
 
-## Team
-| Person | Role | Files |
-|--------|------|-------|
-| Person A | AI & Backend Brain | `ai_engine.py`, `pdf_utils.py` |
-| Person B | Server & API Routes | `main.py` |
-| Person C | Frontend & UI | `frontend/index.html` |
-
----
 
 ## Setup Instructions
 
