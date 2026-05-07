@@ -120,7 +120,15 @@ async def download_report(request: ReportRequest, background_tasks: BackgroundTa
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Report generation failed: {str(e)}")    return {"status": "TenderLens is running"}
+    raise HTTPException(
+        status_code=500,
+        detail=f"Report generation failed: {str(e)}"
+    )
+
+
+@app.get("/")
+async def root():
+    return {"status": "TenderLens is running"}
 
 
 @app.post("/upload-tender")
