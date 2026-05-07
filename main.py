@@ -120,10 +120,10 @@ async def download_report(request: ReportRequest, background_tasks: BackgroundTa
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
     except Exception as e:
-    raise HTTPException(
-        status_code=500,
-        detail=f"Report generation failed: {str(e)}"
-    )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Report generation failed: {str(e)}"
+        )
 
 
 @app.get("/")
