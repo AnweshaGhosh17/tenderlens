@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>TenderLens</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     .spinner {
       border: 3px solid #e5e7eb;
@@ -141,9 +143,10 @@
           <h2 class="text-lg font-bold text-slate-800">Evaluation Matrix</h2>
           <p class="text-sm text-slate-500">Click any cell to see the full reasoning and source evidence</p>
         </div>
-        <button onclick="exportReport()"
-          class="bg-slate-700 hover:bg-slate-800 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">
-          📄 Export Report
+        <button id="exportBtn" onclick="exportReport()"
+          class="bg-slate-700 hover:bg-slate-800 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2">
+          <span id="exportBtnIcon">📄</span>
+          <span id="exportBtnText">Export PDF Report</span>
         </button>
       </div>
 
@@ -463,52 +466,220 @@
     document.getElementById('detailPanel').scrollIntoView({ behavior: 'smooth' });
   }
 
-  // ─── EXPORT REPORT ───────────────────────────────────────────────────────────
-  function exportReport() {
+  // ─── EXPORT REPORT (PDF) ─────────────────────────────────────────────────────
+  async function exportReport() {
     if (allBidderResults.length === 0) return alert('No evaluations to export yet.');
 
-    let report = '';
-    report += '═'.repeat(60) + '\n';
-    report += '        TENDERLENS EVALUATION REPORT\n';
-    report += `        Generated: ${new Date().toLocaleString('en-IN')}\n`;
-    report += '═'.repeat(60) + '\n\n';
+    const btn = document.getElementById('exportBtn');
+    const btnIcon = document.getElementById('exportBtnIcon');
+    const btnText = document.getElementById('exportBtnText');
+    btn.disabled = true;
+    btnIcon.textContent = '⏳';
+    btnText.textContent = 'Generating PDF...';
 
-    report += `ELIGIBILITY CRITERIA (${extractedCriteria.length} total)\n`;
-    report += '─'.repeat(40) + '\n';
-    extractedCriteria.forEach(c => {
-      report += `[${c.id}] [${c.category}] ${c.description}\n`;
-      report += `     Mandatory: ${c.mandatory ? 'Yes' : 'No'}\n`;
-    });
+    try {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 14;
+      const contentW = pageW - margin * 2;
+      let y = margin;
 
-    report += '\n' + '═'.repeat(60) + '\n\n';
-    report += 'BIDDER EVALUATIONS\n';
+      const addPageIfNeeded = (needed = 10) => {
+        if (y + needed > pageH - margin) { pdf.addPage(); y = margin; }
+      };
 
-    allBidderResults.forEach(b => {
-      report += '─'.repeat(40) + '\n';
-      report += `BIDDER: ${b.bidder_name}\n`;
-      report += `STATUS: ${b.overall_status}\n`;
-      report += `DOCUMENT QUALITY: ${b.document_quality}\n`;
-      if (b.quality_note) report += `NOTE: ${b.quality_note}\n`;
-      report += '\nCRITERION-BY-CRITERION BREAKDOWN:\n';
+      // ── Header bar ──────────────────────────────────────────────────────────
+      pdf.setFillColor(30, 58, 138);
+      pdf.roundedRect(margin, y, contentW, 20, 3, 3, 'F');
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(14);
+      pdf.setTextColor(255, 255, 255);
+      pdf.text('🔍 TenderLens — Bid Evaluation Report', margin + 5, y + 8);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(8);
+      pdf.setTextColor(180, 200, 255);
+      pdf.text(`Generated: ${new Date().toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' })}`, margin + 5, y + 15);
+      y += 26;
 
-      (b.evaluations || []).forEach(ev => {
-        report += `\n  [${ev.criteria_id}] ${ev.verdict} — ${formatConfidence(ev.confidence)}% confidence\n`;
-        report += `  Explanation: ${ev.explanation}\n`;
-        if (ev.source_text) report += `  Evidence: "${ev.source_text}"\n`;
-        if (ev.appeal_risk) report += `  ⚖ APPEAL RISK: ${ev.appeal_reason}\n`;
+      // ── Summary cards ────────────────────────────────────────────────────────
+      const cardW = (contentW - 6) / 3;
+      const eligible = allBidderResults.filter(b => b.overall_status === 'ELIGIBLE').length;
+      const notEligible = allBidderResults.filter(b => b.overall_status === 'NOT ELIGIBLE').length;
+      const review = allBidderResults.length - eligible - notEligible;
+
+      const cards = [
+        { label: 'Total Bidders', value: allBidderResults.length, color: [30, 58, 138] },
+        { label: 'Eligible', value: eligible, color: [22, 101, 52] },
+        { label: 'Not Eligible', value: notEligible, color: [153, 27, 27] },
+      ];
+      cards.forEach((card, i) => {
+        const x = margin + i * (cardW + 3);
+        pdf.setFillColor(...card.color);
+        pdf.roundedRect(x, y, cardW, 16, 2, 2, 'F');
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(16);
+        pdf.setTextColor(255, 255, 255);
+        pdf.text(String(card.value), x + cardW / 2, y + 8, { align: 'center' });
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(7);
+        pdf.setTextColor(200, 220, 255);
+        pdf.text(card.label, x + cardW / 2, y + 13, { align: 'center' });
+      });
+      y += 22;
+
+      // ── Eligibility Criteria section ─────────────────────────────────────────
+      addPageIfNeeded(14);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.setTextColor(30, 58, 138);
+      pdf.text(`Eligibility Criteria (${extractedCriteria.length})`, margin, y);
+      y += 2;
+      pdf.setDrawColor(30, 58, 138);
+      pdf.setLineWidth(0.4);
+      pdf.line(margin, y, margin + contentW, y);
+      y += 5;
+
+      const catColors = {
+        'Financial':      [126, 34, 206],
+        'Technical':      [29, 78, 216],
+        'Legal':          [185, 28, 28],
+        'Certifications': [161, 98, 7],
+        'Experience':     [21, 128, 61],
+        'Other':          [71, 85, 105]
+      };
+
+      extractedCriteria.forEach(c => {
+        const lineH = 7 + Math.ceil(pdf.splitTextToSize(c.description, contentW - 28).length * 4.2);
+        addPageIfNeeded(lineH);
+
+        pdf.setFillColor(248, 250, 252);
+        pdf.roundedRect(margin, y, contentW, lineH, 2, 2, 'F');
+        pdf.setDrawColor(226, 232, 240);
+        pdf.roundedRect(margin, y, contentW, lineH, 2, 2, 'S');
+
+        const [r, g, b] = catColors[c.category] || catColors['Other'];
+        pdf.setFillColor(r, g, b);
+        pdf.roundedRect(margin + 2, y + 2, 12, 5, 1, 1, 'F');
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(6);
+        pdf.setTextColor(255, 255, 255);
+        pdf.text(c.id, margin + 8, y + 5.5, { align: 'center' });
+
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(7.5);
+        pdf.setTextColor(51, 65, 85);
+        const descLines = pdf.splitTextToSize(c.description, contentW - 28);
+        pdf.text(descLines, margin + 16, y + 5);
+
+        if (c.mandatory) {
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(6);
+          pdf.setTextColor(185, 28, 28);
+          pdf.text('● Mandatory', margin + contentW - 22, y + 4);
+        }
+        y += lineH + 2;
+      });
+      y += 4;
+
+      // ── Bidder Evaluations ───────────────────────────────────────────────────
+      allBidderResults.forEach(b => {
+        addPageIfNeeded(24);
+
+        const statusColor =
+          b.overall_status === 'ELIGIBLE'     ? [22, 101, 52] :
+          b.overall_status === 'NOT ELIGIBLE' ? [153, 27, 27]  : [120, 53, 15];
+        const statusBg =
+          b.overall_status === 'ELIGIBLE'     ? [240, 253, 244] :
+          b.overall_status === 'NOT ELIGIBLE' ? [254, 242, 242] : [255, 251, 235];
+
+        pdf.setFillColor(30, 58, 138);
+        pdf.roundedRect(margin, y, contentW, 12, 2, 2, 'F');
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(10);
+        pdf.setTextColor(255, 255, 255);
+        pdf.text(b.bidder_name, margin + 4, y + 7);
+
+        pdf.setFillColor(...statusColor);
+        pdf.roundedRect(margin + contentW - 36, y + 2, 34, 8, 2, 2, 'F');
+        pdf.setFontSize(7);
+        pdf.setTextColor(255, 255, 255);
+        pdf.text(b.overall_status, margin + contentW - 19, y + 7, { align: 'center' });
+        y += 15;
+
+        // Criterion rows
+        (b.evaluations || []).forEach(ev => {
+          const criterion = extractedCriteria.find(c => c.id === ev.criteria_id);
+          const descLines = pdf.splitTextToSize(criterion?.description || ev.criteria_id, contentW - 50);
+          const explLines = pdf.splitTextToSize(ev.explanation || '', contentW - 50);
+          const rowH = Math.max(14, (descLines.length + explLines.length) * 3.8 + 6);
+
+          addPageIfNeeded(rowH);
+
+          const [br, bg, bb] =
+            ev.verdict === 'ELIGIBLE'     ? [240, 253, 244] :
+            ev.verdict === 'NOT ELIGIBLE' ? [254, 242, 242] : [255, 251, 235];
+          pdf.setFillColor(br, bg, bb);
+          pdf.roundedRect(margin, y, contentW, rowH, 1, 1, 'F');
+          pdf.setDrawColor(226, 232, 240);
+          pdf.roundedRect(margin, y, contentW, rowH, 1, 1, 'S');
+
+          const [vr, vg, vb] =
+            ev.verdict === 'ELIGIBLE'     ? [22, 101, 52] :
+            ev.verdict === 'NOT ELIGIBLE' ? [153, 27, 27]  : [120, 53, 15];
+          pdf.setFillColor(vr, vg, vb);
+          pdf.roundedRect(margin + 2, y + 2, 26, 6, 1, 1, 'F');
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(6);
+          pdf.setTextColor(255, 255, 255);
+          const icon = ev.verdict === 'ELIGIBLE' ? '✓' : ev.verdict === 'NOT ELIGIBLE' ? '✗' : '?';
+          pdf.text(`${icon} ${ev.verdict}`, margin + 15, y + 6, { align: 'center' });
+
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(7);
+          pdf.setTextColor(30, 41, 59);
+          pdf.text(descLines, margin + 31, y + 5);
+
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(6.5);
+          pdf.setTextColor(71, 85, 105);
+          pdf.text(explLines, margin + 31, y + 5 + descLines.length * 3.8);
+
+          const conf = formatConfidence(ev.confidence);
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(6);
+          pdf.setTextColor(100, 116, 139);
+          pdf.text(`${conf}% conf.`, margin + contentW - 2, y + 5, { align: 'right' });
+
+          y += rowH + 1.5;
+        });
+        y += 6;
       });
 
-      report += '\n';
-    });
+      // ── Footer ───────────────────────────────────────────────────────────────
+      const totalPages = pdf.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        pdf.setFillColor(248, 250, 252);
+        pdf.rect(0, pageH - 8, pageW, 8, 'F');
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(7);
+        pdf.setTextColor(148, 163, 184);
+        pdf.text('TenderLens — Powered by Groq AI', margin, pageH - 3);
+        pdf.text(`Page ${i} of ${totalPages}`, pageW - margin, pageH - 3, { align: 'right' });
+      }
 
-    report += '═'.repeat(60) + '\n';
-    report += 'END OF REPORT — TenderLens · Powered by Groq AI\n';
+      pdf.save(`TenderLens_Report_${Date.now()}.pdf`);
 
-    const blob = new Blob([report], { type: 'text/plain' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `TenderLens_Report_${Date.now()}.txt`;
-    a.click();
+    } catch (err) {
+      console.error(err);
+      alert('PDF generation failed: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btnIcon.textContent = '📄';
+      btnText.textContent = 'Export PDF Report';
+    }
   }
 
   // ─── UTILITY ─────────────────────────────────────────────────────────────────
